@@ -43,9 +43,9 @@
 T2/
 ├── data/
 │   ├── test_data_1.jsonl    # 相似度测试用例（10组）
-│   └── dataset.jsonl         # 考生生成的数据集（1024条）
+│   └── dataset.jsonl         # 生成的数据集（1024条）
 ├── evaluate.py              # 评测主程序（不可修改）
-├── submission.py            # 考生实现文件（仅此文件可修改）
+├── submission.py            # 实现文件（仅此文件可修改）
 └── README.md                # 本文档
 ```
 
@@ -112,7 +112,7 @@ python evaluate.py --mode grading
 - 测试用例描述
 - 两个输入文本
 - 标准相似度
-- 考生计算的相似度
+- 模型计算的相似度
 - 误差值
 - 判定结果（✅/❌）
 
@@ -129,7 +129,7 @@ python evaluate.py --mode grading
 **测试内容**：
 - 加载 `data/dataset.jsonl` 数据集
 - 检查数据数量、质量
-- 使用考生的模型计算数据集的平均相似度
+- 使用 embedding 模型计算数据集的平均相似度
 
 **数据要求**：
 1. **数量要求**：1024 条

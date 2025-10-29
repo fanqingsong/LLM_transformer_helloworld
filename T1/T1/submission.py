@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-仅此文件允许考生修改：
+仅此文件允许修改：
 - 请在下列函数的函数体内完成实现。
 - 不要改动函数名与参数签名。
 - 你可以新增少量辅助函数。
@@ -16,7 +16,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 # ============================================================
 def build_system_prompt() -> str:
     """
-    考生实现：定义 system prompt
+    实现：定义 system prompt
     - 返回一个 system prompt，要求模型以"[Answer]: xxxx"的格式给出最终数值。
     
     System Prompt 的作用：
@@ -29,7 +29,7 @@ def build_system_prompt() -> str:
     - 统一答案格式，避免模型输出过多解释性文字
     - 符合测试数据的标准格式要求
     """
-    # ======== 考生实现区域（可修改） ========
+    # ======== 实现区域（可修改） ========
     
     # System Prompt 定义：指导模型如何回答数学问题
     # 关键点：必须包含 [Answer]: 格式的要求，这是评测程序提取答案的标准
@@ -45,7 +45,7 @@ def build_system_prompt() -> str:
     
     return system_prompt
     
-    # ======== 考生实现区域（可修改） ========
+    # ======== 实现区域（可修改） ========
 
 
 # ============================================================
@@ -57,7 +57,7 @@ def apply_chat_template_single(
     problem: str,
 ) -> str:
     """
-    考生实现：将单个问题转换为模型输入文本
+    实现：将单个问题转换为模型输入文本
     - 使用 tokenizer.apply_chat_template 构造对话
     - 返回拼装好的文本字符串
     
@@ -75,7 +75,7 @@ def apply_chat_template_single(
         <|system|>你是一个数学助手...<|user|>12 + 35<|assistant|>
         这样的格式。
     """
-    # ======== 考生实现区域（可修改） ========
+    # ======== 实现区域（可修改） ========
     
     # 构造消息列表：包含系统提示和用户问题
     # 消息格式：每个消息是一个字典，包含 role（角色）和 content（内容）
@@ -99,7 +99,7 @@ def apply_chat_template_single(
     )
     return rendered
     
-    # ======== 考生实现区域（可修改） ========
+    # ======== 实现区域（可修改） ========
 
 
 # ============================================================
@@ -113,7 +113,7 @@ def generate_single(
     do_sample: bool,
 ) -> torch.Tensor:
     """
-    考生实现：单条推理
+    实现：单条推理
     - 将文本 tokenize 后送入模型生成
     - 返回包含输入和输出的完整 token 序列
     
@@ -132,7 +132,7 @@ def generate_single(
         2. 使用 .to(model.device) 确保输入在正确的设备上（CPU/GPU/NPU）
         3. 使用 model.generate() 的默认参数，模型会自动处理特殊 token
     """
-    # ======== 考生实现区域（可修改） ========
+    # ======== 实现区域（可修改） ========
     
     # 步骤 1：将文本编码为 token IDs
     # - tokenizer.encode() 将字符串转换为整数列表
@@ -150,7 +150,7 @@ def generate_single(
         do_sample=do_sample,          # 采样模式：True=随机采样（更灵活），False=贪心（更确定）
     )
     return outputs
-    # ======== 考生实现区域（可修改） ========
+    # ======== 实现区域（可修改） ========
 
 
 def generate_batch(
@@ -161,7 +161,7 @@ def generate_batch(
     do_sample: bool,
 ) -> List[torch.Tensor]:
     """
-    考生实现：批量推理
+    实现：批量推理
     - 一次处理多个问题，提高效率
     - 返回所有批次的输出列表
     
@@ -187,7 +187,7 @@ def generate_batch(
         3. 使用 attention_mask 告诉模型哪些 token 是 padding，哪些是真实内容
         4. 使用 torch.no_grad() 节省显存（推理时不需要梯度）
     """
-    # ======== 考生实现区域（可修改） ========
+    # ======== 实现区域（可修改） ========
     
     all_outputs = []  # 存储所有批次的输出
     batch_size: int = 4  # 批次大小：一次处理 4 条数据
@@ -234,5 +234,5 @@ def generate_batch(
     # evaluate.py 会将这些批次的结果合并到一起
     return all_outputs
     
-    # ======== 考生实现区域（可修改） ========
+    # ======== 实现区域（可修改） ========
 

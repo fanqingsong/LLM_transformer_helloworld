@@ -4,7 +4,7 @@ T2 评测程序 - 支持两种运行模式
 
 1. 演示模式（demo）：
    - 详细展示每个测试用例的结果
-   - 显示标准答案和考生答案的对比
+   - 显示标准答案和模型输出的对比
    - 显示数据多样性的详细统计
    - 适合调试和查看实现效果
    使用方法：
@@ -25,7 +25,7 @@ T2 评测程序 - 支持两种运行模式
     * 允许误差≤0.03
     * 必须满分才能进行第二部分
   - 第二部分（数据多样性）：50分
-    * 使用考生模型计算数据集相似度
+    * 使用 embedding 模型计算数据集相似度
     * 数据质量扣分（每条问题扣1分）：
       - 重复题目：每条重复扣1分
       - 空题目：每条空题目扣1分
@@ -99,7 +99,7 @@ def load_test_cases(path: str = TEST_CASES_PATH) -> List[Dict]:
 # 工具函数
 # =========================
 def load_student_model():
-    """加载考生使用的模型（transformers）"""
+    """加载 embedding 模型（transformers）"""
     tokenizer = AutoTokenizer.from_pretrained(STUDENT_MODEL, padding_side="left", trust_remote_code=True)
     try:
         model = AutoModel.from_pretrained(STUDENT_MODEL, trust_remote_code=True)
@@ -175,12 +175,12 @@ def load_dataset(data_path: str, n_required: int) -> List[Dict[str, str]]:
 
 def compute_pairwise_similarity_batch(model: AutoModel, tokenizer: AutoTokenizer, texts: List[str], batch_size: int = 32) -> Tuple[float, float, float]:
     """
-    使用考生模型计算所有文本两两之间的平均相似度（仅上三角 i < j）
+    使用 embedding 模型计算所有文本两两之间的平均相似度（仅上三角 i < j）
     使用批量编码以提高效率
     
     Args:
-        model: 考生的 transformers 模型
-        tokenizer: 考生的 tokenizer
+        model: embedding 模型（transformers）
+        tokenizer: tokenizer
         texts: 文本列表
         batch_size: 批处理大小
     
@@ -268,7 +268,7 @@ def test_similarity_accuracy(stu_model: AutoModel, stu_tokenizer: AutoTokenizer,
         # 标准答案：直接使用预计算的标准相似度
         std_sim = case["standard_similarity"]
         
-        # 考生答案
+        # 模型计算的相似度
         try:
             stu_sim = compute_similarity(text1, text2, stu_model, stu_tokenizer)
             if not isinstance(stu_sim, (int, float)):
@@ -312,7 +312,7 @@ def test_similarity_accuracy(stu_model: AutoModel, stu_tokenizer: AutoTokenizer,
             print(f"  text1: {text1}")
             print(f"  text2: {text2}")
             print(f"  标准答案: {std_sim:.6f}")
-            print(f"  考生答案: {stu_sim:.6f}")
+            print(f"  模型输出: {stu_sim:.6f}")
             print(f"  误差: {diff:.6f} (容差: {TOLERANCE})")
             print()
         else:
@@ -348,7 +348,7 @@ def test_data_diversity(stu_model: AutoModel, stu_tokenizer: AutoTokenizer, mode
     第二部分：测试数据多样性
     返回：(得分, 统计信息)
     
-    注意：使用考生的模型计算数据集相似度
+    注意：使用 embedding 模型计算数据集相似度
     """
     if mode == "demo":
         print("=" * 60)
@@ -574,10 +574,10 @@ def run_evaluation(mode: str = "demo"):
         print("=" * 60)
     print()
     
-    # 加载考生模型
-    print("正在加载考生模型（transformers）...")
+    # 加载 embedding 模型
+    print("正在加载 embedding 模型（transformers）...")
     stu_model, stu_tokenizer = load_student_model()
-    print("✅ 考生模型加载完成")
+    print("✅ embedding 模型加载完成")
     print()
     
     # 第一部分：相似度计算准确性（使用预计算的标准相似度）

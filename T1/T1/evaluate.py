@@ -130,7 +130,7 @@ def score_report(stage_name: str, n_total: int, n_correct: int, elapsed: float, 
     return acc
 
 # ============================================================
-# 推理封装（调用考生实现 + decode）
+# 推理封装（调用 submission 实现 + decode）
 # ============================================================
 def solve_single(
     model,
@@ -141,15 +141,15 @@ def solve_single(
 ) -> str:
     """
     单条推理完整流程：
-    1. 拼装模板 (调用考生实现)
-    2. 推理生成 (调用考生实现)
+    1. 拼装模板 (调用 submission 实现)
+    2. 推理生成 (调用 submission 实现)
     3. 解码输出 (评测程序)
     """
-    # 1. 拼装模板 (调用考生实现)
+    # 1. 拼装模板 (调用 submission 实现)
     system_prompt = build_system_prompt()
     rendered_text = apply_chat_template_single(tokenizer, system_prompt, problem)
     
-    # 2. 推理生成 (调用考生实现)
+    # 2. 推理生成 (调用 submission 实现)
     outputs = generate_single(model, tokenizer, rendered_text, max_new_tokens, do_sample)
     
     # 3. 解码新生成的 token (评测程序)
@@ -175,11 +175,11 @@ def solve_batch(
 ) -> List[str]:
     """
     批量推理完整流程：
-    1. 拼装模板 (调用考生实现)
-    2. 推理生成 (调用考生实现)
+    1. 拼装模板 (调用 submission 实现)
+    2. 推理生成 (调用 submission 实现)
     3. 批量解码 (评测程序)
     """
-    # 1. 批量拼装模板 (调用考生实现)
+    # 1. 批量拼装模板 (调用 submission 实现)
     system_prompt = build_system_prompt()
     rendered_texts = [
         apply_chat_template_single(tokenizer, system_prompt, p) 
@@ -190,7 +190,7 @@ def solve_batch(
     if len(rendered_texts) == 0:
         return []
     
-    # 2. 批量推理生成 (调用考生实现)
+    # 2. 批量推理生成 (调用 submission 实现)
     all_outputs = generate_batch(model, tokenizer, rendered_texts, max_new_tokens, do_sample)
     
     # 边界情况：生成结果为空
@@ -289,7 +289,7 @@ def run_pipeline(mode: str = "demo", model_name: str = None):
         tokenizer.pad_token = tokenizer.eos_token
     model.config.pad_token_id = tokenizer.pad_token_id
 
-    # 预检 system_prompt（来源于考生实现）
+    # 预检 system_prompt（来源于 submission 实现）
     sp = build_system_prompt().strip()
     assert len(sp) > 0, "system_prompt 为空，请在 submission.py 中实现 build_system_prompt()"
 

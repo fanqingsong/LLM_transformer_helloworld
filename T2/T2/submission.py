@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-仅此文件允许考生修改：
+仅此文件允许修改：
 - 请在下列函数的函数体内完成实现。
 - 不要改动函数名与参数签名。
 - 你可以新增少量辅助函数。
@@ -16,7 +16,7 @@ from transformers import AutoTokenizer, AutoModel
 # ============================================================
 def student_compute_similarity(text1: str, text2: str, model: AutoModel, tokenizer: AutoTokenizer) -> float:
     """
-    考生实现：计算两个文本之间的相似度
+    实现：计算两个文本之间的相似度
     
     参数：
         text1: 第一个文本字符串（如 "12 + 35"）
@@ -46,7 +46,7 @@ def student_compute_similarity(text1: str, text2: str, model: AutoModel, tokeniz
         - Embedding 模型在训练时，最后一个 token 包含了整个句子的语义信息
         - 相比平均 pooling 或 CLS token，last-token 能更好地捕捉句子级语义
     """
-    # ======== 考生实现区域（可修改） ========
+    # ======== 实现区域（可修改） ========
     
     # 步骤 1：获取模型所在的设备（CPU/GPU/NPU）
     # next(model.parameters()) 获取模型的第一个参数，.device 获取其设备
@@ -115,7 +115,7 @@ def student_compute_similarity(text1: str, text2: str, model: AutoModel, tokeniz
     
     return similarity
     
-    # ======== 考生实现区域（可修改） ========
+    # ======== 实现区域（可修改） ========
 
 
 def compute_similarity(text1: str, text2: str, model: AutoModel, tokenizer: AutoTokenizer) -> float:
