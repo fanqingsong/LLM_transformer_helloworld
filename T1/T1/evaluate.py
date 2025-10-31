@@ -153,14 +153,25 @@ def solve_single(
     outputs = generate_single(model, tokenizer, rendered_text, max_new_tokens, do_sample)
     
     # 3. 解码新生成的 token (评测程序)
+    # 假设 rendered_text = "<|system|>你是助教<|user|>1+1是多少？<|assistant|>"
+    # 模型会接着 rendered_text 继续生成 token 序列，如 total_output = [token_ids for "<|system|>你是助教<|user|>1+1是多少？<|assistant|>2"]
+    # 但只需要从 "<|assistant|>" 之后模型新生成的内容，这部分才是真正的答案
+
+    # 先将输入的 rendered_text 转为 token_ids，得到输入长度 inp_len
     inputs = tokenizer(rendered_text, return_tensors="pt", padding=True).to(model.device)
     if "attention_mask" in inputs:
         inp_len = int(inputs["attention_mask"].sum(dim=1).item())
+        # attention_mask 标记了内容部分的 token 数（不含 padding）
     else:
         inp_len = inputs["input_ids"].shape[1]
-    
-    # 仅解码新生成的部分 (评测程序)
+        # 若无 attention_mask，则直接用 token 序列长度
+
+    # 输出 outputs[0] 形如 [输入的 token_ids, 新生成的 token_ids]
+    # 只取新生成部分 gen_only = outputs[0][inp_len:]
+    # 例如：outputs[0]=[100,101,102,2000]，inp_len=3，则 gen_only=[2000]
     gen_only = outputs[0][inp_len:]
+
+    # 将新生成的 token 解码为字符串，即为最终答案。例如：[2000]->"2"
     text = tokenizer.decode(gen_only, skip_special_tokens=True).strip()
     
     return text
@@ -191,6 +202,13 @@ def solve_batch(
         return []
     
     # 2. 批量推理生成 (调用 submission 实现)
+    # 例子说明 all_outputs 的数据格式：
+    # 假设 problems = 8 道题，batch_size = 4，则 generate_batch 返回 all_outputs 结构如下：
+    # all_outputs = [outputs_batch1, outputs_batch2]
+    # 其中 outputs_batch1.shape = [4, seq_len1]，outputs_batch2.shape = [4, seq_len2]
+    # 每个 outputs_batch 代表一批问题的生成输出，形状是 [本批题数, 每条序列长度]
+    # 如果总题数不是 batch_size 的整数倍，比如 10 道题，会返回 3 批，最后一批只有 2 条 shape=[2, seq_len3]
+    # 后续会将多个 outputs 拼到一起，处理不同序列长度时用 padding 补齐
     all_outputs = generate_batch(model, tokenizer, rendered_texts, max_new_tokens, do_sample)
     
     # 边界情况：生成结果为空
@@ -218,11 +236,20 @@ def solve_batch(
                     dtype=output.dtype,
                     device=output.device
                 )
+                # 例子说明此代码逻辑：
+                # 假设 output 是 [4, 28] （即当前批次4条数据，每条为28个token）
+                # 假设 max_len = 30，需要填充2个token到每一行右侧
+                # padding 张量就是 [4, 2]，值为 pad_token_id
+                # torch.cat([output, padding], dim=1) 会把每一行的 output 右侧接上2个 padding
+                # 变成 [4, 30]，这样各批次能对齐拼接，便于后续统一处理
                 padded_output = torch.cat([output, padding], dim=1)
                 padded_outputs.append(padded_output)
             else:
                 padded_outputs.append(output)
         
+        # 这里做的是把多个批次的模型输出（每个批次是 [batch_size, seq_len] 张量）拼在一起，组成完整的批量输出。
+        # 场景举例：假如一共8个问题，每次4个问题作为一批推理，则all_outputs有2个元素，每个元素形状类似[4, 30]。
+        # 这里用torch.cat在第0维拼起来，效果就是[8, 30]，统一后面解码处理。
         batch_outputs = torch.cat(padded_outputs, dim=0)
     
     # 边界情况：生成结果为空
@@ -253,11 +280,16 @@ def solve_batch(
 
 def run_pipeline(mode: str = "demo", model_name: str = None):
     """
+    """
     运行评测流程
-    
-    Args:
-        mode: 运行模式，"demo" 或 "grading"
-        model_name: 模型路径，如不指定则使用默认值
+
+    参数说明：
+        mode: 运行模式，可选 "demo" 或 "grading"
+            - "demo"：演示模式。会在每个步骤详细输出推理过程、问题、模型生成的内容以及比分，便于观察模型表现和调试。
+            - "grading"：评分模式。只输出最终的各项分数结果，无详细推理和中间输出，更适合自动评测或排行榜上传成绩。
+
+        model_name: 加载的模型路径，不指定则使用默认模型名称。
+    """
     """
     if mode not in ["demo", "grading"]:
         print(f"⚠️  警告：未知的运行模式 '{mode}'，使用默认模式 'demo'")
@@ -276,7 +308,7 @@ def run_pipeline(mode: str = "demo", model_name: str = None):
 
     tokenizer = AutoTokenizer.from_pretrained(
         model_name,
-        trust_remote_code=True,
+        trust_remote_code=True,  # 允许加载模型仓库自定义的tokenizer/model类（如Qwen等官方支持的模型）
         padding_side="left",
         truncation_side="left",
     )
@@ -311,16 +343,31 @@ def run_pipeline(mode: str = "demo", model_name: str = None):
     
     stage1_correct = 0
     stage1_start = time.time()
+    # 使用 torch.inference_mode():
+    # 1. inference_mode() 用于模型推理阶段，确保不会追踪/存储计算图，从而节省显存并提升推理速度。
+    # 2. 它比 torch.no_grad() 更进一步：
+    #    - torch.no_grad() 只是不保存梯度，适合评估/推理；
+    #    - torch.inference_mode() 除了不保存梯度，还会禁用 Autograd 引擎，提高内存效率和推理吞吐量，且对输入的 requires_grad 状态有额外优化，几乎禁止任何 Autograd 操作。
+    #    - 在多数情况下，推理任务推荐用 inference_mode()，尤其是只做前向、绝不需要反向传播的时候。
     with torch.inference_mode():
+        # enumerate(stage1_items, 1) 会生成一个带计数的迭代器：
+        # - idx 表示序号（从 1 开始）
+        # - (problem, gold) 表示每条题目和标准答案
         for idx, (problem, gold) in enumerate(stage1_items, 1):
+            # 记录单条推理开始时间
             t0 = time.time()
+            # 调用 solve_single 进行单条推理，获取模型生成的原始文本
             raw_text = solve_single(model, tokenizer, problem, MAX_NEW_TOKENS, DO_SAMPLE)
+            # 移除文本中的 <think> 标签及其内容，得到非思考部分文本
             no_think_text = remove_thinking(raw_text)
+            # 移除答案前缀（如 "答案：" 等），得到最终提取的答案
             cleaned_text = remove_answer_prefix(no_think_text)
             t1 = time.time()
+            # 检查答案格式和数值是否正确
             ok, _, msg = check_format_and_value(cleaned_text, gold)
             
             if mode == "demo":
+                # 演示模式：详细输出每条推理过程
                 print(f"【题目】{problem}")
                 print(f"【模型原始输出】{raw_text}")
                 print(f"【非思考部分文本】{no_think_text}")
@@ -329,12 +376,16 @@ def run_pipeline(mode: str = "demo", model_name: str = None):
                 print(f"【耗时】{t1 - t0:.6f} 秒\n")
             else:
                 # 评分模式：简洁输出进度
+                # 用✓/✗标记正确/错误
                 status = "✓" if ok else "✗"
+                # 输出进度：[题目序号/总题数] 状态
                 print(f"  [{idx}/{len(stage1_items)}] {status}")
             
             if ok:
                 stage1_correct += 1
+    # 记录阶段一总耗时
     stage1_elapsed = time.time() - stage1_start
+    # 调用 score_report 输出阶段一的分数报告
     score_report("阶段一（逐条）", len(stage1_items), stage1_correct, stage1_elapsed, mode)
 
     # 计算第一阶段单条平均耗时
